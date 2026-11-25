@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapa 2D de Leonida — Guía GTA 6</title>
+<style>
+  :root{
+    --bg:#0d0f1a; --panel:#151827; --panel2:#1c2034; --line:#2a2f4a;
+    --text:#e9ecf8; --muted:#9aa1c0; --pink:#ff4fa3; --teal:#2de0c8; --gold:#ffc24a;
+    --sea1:#0f3b5c; --sea2:#0a2740;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .app{display:flex;height:100vh;width:100%;overflow:hidden}
+  /* ---------- Sidebar ---------- */
+  .side{width:340px;min-width:300px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+  .brand{padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+  .brand h1{margin:0;font-size:20px;letter-spacing:.5px}
+  .brand h1 span{background:linear-gradient(90deg,var(--pink),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand p{margin:4px 0 0;color:var(--muted);font-size:12px}
+  .section{padding:12px 18px;border-bottom:1px solid var(--line)}
+  .section h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  input[type=search],input[type=text],textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 10px;font-size:14px;font-family:inherit}
+  textarea{resize:vertical;min-height:60px}
+  .cats{display:flex;flex-direction:column;gap:6px}
+  .cat{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;user-select:none;padding:4px 6px;border-radius:6px}
+  .cat:hover{background:var(--panel2)}
+  .cat input{accent-color:var(--pink)}
+  .dot{width:12px;height:12px;border-radius:50%;flex:none;border:2px solid rgba(255,255,255,.7)}
+  .cat .count{margin-left:auto;color:var(--muted);font-size:12px}
+  .bar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-top:6px}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--pink));width:0}
+  .list{flex:1;overflow:auto;padding:6px 10px 16px}
+  .group-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:12px 8px 4px}
+  .item{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;cursor:pointer;font-size:14px}
+  .item:hover,.item.active{background:var(--panel2)}
+  .item.done .name{text-decoration:line-through;color:var(--muted)}
+  .item .reg{margin-left:auto;font-size:11px;color:var(--muted);white-space:nowrap}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:8px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit}
+  .btn:hover{border-color:var(--pink)}
+  .btn.primary{background:var(--pink);border-color:var(--pink);color:#fff;font-weight:600}
+  .btn.on{background:var(--teal);border-color:var(--teal);color:#062a26;font-weight:700}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  /* ---------- Map ---------- */
+  .mapwrap{flex:1;position:relative;overflow:hidden;background:radial-gradient(ellipse at 60% 40%,var(--sea1),var(--sea2));touch-action:none}
+  svg#map{width:100%;height:100%;display:block;cursor:grab}
+  svg#map.dragging{cursor:grabbing}
+  svg#map.editing{cursor:crosshair}
+  .region{stroke:rgba(255,255,255,.25);stroke-width:1.5;transition:opacity .2s}
+  .region:hover{opacity:.85}
+  .rlabel{font-weight:800;letter-spacing:2px;text-transform:uppercase;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:4px;pointer-events:none;text-anchor:middle}
+  .slabel{font-size:12px;fill:#f4f4ff;paint-order:stroke;stroke:rgba(0,0,0,.6);stroke-width:3px;pointer-events:none;text-anchor:middle;font-style:italic}
+  .marker{cursor:pointer}
+  .marker circle.pin{stroke:#fff;stroke-width:2.5}
+  .marker.done circle.pin{opacity:.45}
+  .marker.sel circle.halo{opacity:1}
+  .marker circle.halo{fill:none;stroke:#fff;stroke-width:2;opacity:0}
+  .marker text{font-size:11px;font-weight:800;fill:#fff;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+  .controls{position:absolute;right:14px;top:14px;display:flex;flex-direction:column;gap:6px}
+  .controls .btn{width:40px;height:40px;font-size:20px;padding:0;background:rgba(21,24,39,.9)}
+  .coords{position:absolute;left:14px;bottom:14px;background:rgba(21,24,39,.85);border:1px solid var(--line);padding:6px 10px;border-radius:8px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .legend-hint{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--teal);color:#062a26;font-weight:700;padding:8px 14px;border-radius:20px;font-size:13px;display:none;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+  /* ---------- Info card ---------- */
+  .card{position:absolute;right:70px;top:14px;width:320px;max-width:calc(100% - 90px);background:rgba(21,24,39,.97);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .card h2{margin:0 0 4px;font-size:18px}
+  .card .meta{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .card p{font-size:14px;line-height:1.45;margin:0 0 10px;color:#d6daf0}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);margin-right:4px}
+  .tag.ex{border-color:var(--gold);color:var(--gold)}
+  .close{position:absolute;right:10px;top:8px;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer}
+  /* ---------- Modal ---------- */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+  .modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;width:420px;max-width:100%;max-height:90vh;overflow:auto}
+  .modal h2{margin:0 0 12px;font-size:18px}
+  .modal label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  .toggle-side{display:none}
+  /* ---------- Mobile ---------- */
+  @media (max-width:820px){
+    .app{flex-direction:column-reverse}
+    .side{width:100%;min-width:0;height:44vh;border-right:none;border-top:1px solid var(--line);transition:height .25s}
+    .side.collapsed{height:52px}
+    .side.collapsed > :not(.brand){display:none}
+    .brand{display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+    .brand p{display:none}
+    .toggle-side{display:block;color:var(--muted);font-size:13px}
+    .card{right:10px;left:10px;width:auto;max-width:none;top:auto;bottom:10px}
+    .controls{top:10px;right:10px}
+  }
+
+html,body{height:auto;min-height:100%;} .community,.progress,.legacy{max-width:1200px;margin:auto;padding:14px;} .community h1{margin:0;font-size:28px;letter-spacing:2px}.community h1 span{color:var(--pink)}.community header p,.note,.progress p{color:var(--muted)}.community .row{margin:12px 0}.community a{text-decoration:none}.community iframe{display:block;border:2px solid #ff2a85;border-radius:16px;height:72vh;height:72dvh;min-height:360px;background:#151827;touch-action:auto}.progress label{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--line);font-size:16px}.progress input{accent-color:var(--pink);width:22px;height:22px}.legacy summary{cursor:pointer;padding:12px;color:var(--muted)}.legacy .app{height:80vh}.community .btn{min-height:44px;display:inline-flex;align-items:center;font-size:14px}
+</style>
+</head>
+<body>
+<section class="community"><header><h1>VICE<span>ROUTE</span> · GTA VI</h1><p>Mapa comunitario de Leonida</p><div class="row"><a class="btn" href="https://lociai.github.io/gta6-leonida-community-map/" target="_blank" rel="noopener">Abrir mapa completo ↗</a><button class="btn" onclick="document.getElementById('communityMap').src=document.getElementById('communityMap').src">Recargar mapa</button><a class="btn" href="#registro">Mi registro ↓</a></div></header><iframe id="communityMap" src="https://lociai.github.io/gta6-leonida-community-map/" width="100%" height="700" allowfullscreen title="ViceRoute GTA 6 Map"></iframe><p class="note">Usa los controles del mapa comunitario. Si no carga dentro de la página, ábrelo directamente con el botón superior. Sus marcadores son independientes de tu registro.</p></section>
+<section id="registro" class="progress"><h2>Mi progreso</h2><p>Registro personal · no representa el porcentaje total del juego.</p><div id="personal"></div><p id="total"></p></section>
+<details class="legacy"><summary>Editor y mapa esquemático anterior (coordenadas no verificadas)</summary>
+<div class="app">
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="side" id="side">
+    <div class="brand" id="brand">
+      <div>
+        <h1><span>LEONIDA</span> · Mapa 2D</h1>
+        <p>Guía interactiva de GTA 6 — misiones, coleccionables y lugares</p>
+      </div>
+      <span class="toggle-side" id="toggleSide">▲ Menú</span>
+    </div>
+
+    <div class="section">
+      <input type="search" id="search" placeholder="Buscar misión, lugar, coleccionable…">
+    </div>
+
+    <div class="section">
+      <h3>Capas</h3>
+      <div class="cats" id="cats"></div>
+    </div>
+
+    <div class="section">
+      <h3>Progreso total <span id="progTxt" style="float:right;color:var(--text)"></span></h3>
+      <div class="bar"><i id="progBar"></i></div>
+    </div>
+
+    <div class="section">
+      <h3>Editor</h3>
+      <div class="row">
+        <button class="btn" id="editBtn">✚ Agregar marcadores</button>
+        <button class="btn" id="exportBtn">⬇ Exportar</button>
+        <button class="btn" id="importBtn">⬆ Importar</button>
+      </div>
+    </div>
+
+    <div class="list" id="list"></div>
+  </aside>
+
+  <!-- ================= MAPA ================= -->
+  <main class="mapwrap" id="wrap">
+    <svg id="map" viewBox="0 0 1000 1300" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="waves" width="40" height="20" patternUnits="userSpaceOnUse">
+          <path d="M0 10 Q10 4 20 10 T40 10" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="1.5"/>
+        </pattern>
+        <pattern id="swamp" width="16" height="16" patternUnits="userSpaceOnUse">
+          <path d="M3 13 L5 7 M8 13 L8 6 M13 13 L11 7" stroke="rgba(20,60,30,.35)" stroke-width="1.3"/>
+        </pattern>
+        <pattern id="trees" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="6" cy="7" r="3.2" fill="rgba(10,50,25,.35)"/><circle cx="16" cy="16" r="3.6" fill="rgba(10,50,25,.35)"/>
+        </pattern>
+        <pattern id="city" width="14" height="14" patternUnits="userSpaceOnUse">
+          <rect x="2" y="2" width="5" height="5" fill="rgba(255,255,255,.12)"/><rect x="9" y="8" width="4" height="4" fill="rgba(255,255,255,.09)"/>
+        </pattern>
+        <clipPath id="landClip"><use href="#landShape"/></clipPath>
+        <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity=".45"/>
+        </filter>
+      </defs>
+
+      <g id="world">
+        <rect x="-2000" y="-2000" width="5000" height="5300" fill="url(#waves)"/>
+
+        <!-- Tierra firme (forma original, inspirada en una península tipo Florida) -->
+        <path id="landShape" d="
+          M 40 150 C 160 120 330 110 470 108 C 560 104 620 92 680 112
+          C 730 150 752 220 772 290 C 800 400 822 500 846 610
+          C 868 720 884 820 884 905 C 884 990 860 1050 818 1092
+          C 780 1126 728 1122 690 1090 C 650 1056 612 990 588 930
+          C 566 870 540 800 510 740 C 478 676 446 610 418 548
+          C 396 498 382 450 360 400 C 330 350 286 322 230 312
+          C 170 300 100 312 40 300 Z" fill="#d9c98f" filter="url(#shadow)"/>
+
+        <!-- Regiones (recortadas a la tierra) -->
+        <g clip-path="url(#landClip)" id="regions">
+          <polygon class="region" data-r="Port Gellhorn" points="0,90 395,90 430,300 380,410 0,330" fill="#c98b5a"/>
+          <polygon class="region" data-r="Mount Kalaga" points="395,90 760,90 770,300 430,300" fill="#4f8a52"/>
+          <polygon class="region" data-r="Ambrosia" points="380,410 430,300 770,300 850,590 500,660" fill="#b6a35a"/>
+          <polygon class="region" data-r="Grassrivers" points="500,660 850,590 850,770 770,775 745,900 760,1140 520,1140" fill="#6e9a6a"/>
+          <polygon class="region" data-r="Vice City" points="770,775 900,750 900,1140 760,1140 745,900" fill="#e0679b"/>
+        </g>
+        <!-- Texturas -->
+        <g clip-path="url(#landClip)" pointer-events="none">
+          <polygon points="395,90 760,90 770,300 430,300" fill="url(#trees)"/>
+          <polygon points="500,660 850,590 850,770 770,775 745,900 760,1140 520,1140" fill="url(#swamp)"/>
+          <polygon points="770,775 900,750 900,1140 760,1140 745,900" fill="url(#city)"/>
+        </g>
+
+        <!-- Lago interior -->
+        <ellipse cx="690" cy="640" rx="46" ry="38" fill="#2b6f9a" stroke="rgba(255,255,255,.3)"/>
+        <!-- Ríos -->
+        <path d="M690 678 C 680 760 640 820 650 900 C 655 960 690 1010 700 1060" fill="none" stroke="#3a86b5" stroke-width="5" stroke-linecap="round" opacity=".8"/>
+        <path d="M520 150 C 540 220 600 260 640 330 C 670 390 690 520 690 600" fill="none" stroke="#3a86b5" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+
+        <!-- Leonida Keys (cadena de islas) -->
+        <g id="keys">
+          <ellipse cx="760" cy="1160" rx="26" ry="10" fill="#d9c98f" transform="rotate(-30 760 1160)"/>
+          <ellipse cx="715" cy="1190" rx="30" ry="9" fill="#d9c98f" transform="rotate(-22 715 1190)"/>
+          <ellipse cx="660" cy="1212" rx="34" ry="9" fill="#d9c98f" transform="rotate(-12 660 1212)"/>
+          <ellipse cx="600" cy="1226" rx="30" ry="8" fill="#d9c98f" transform="rotate(-6 600 1226)"/>
+          <ellipse cx="540" cy="1234" rx="28" ry="8" fill="#d9c98f"/>
+          <ellipse cx="482" cy="1238" rx="24" ry="8" fill="#d9c98f" transform="rotate(4 482 1238)"/>
+          <ellipse cx="430" cy="1236" rx="18" ry="7" fill="#d9c98f"/>
+          <path d="M785 1145 L 430 1236" stroke="rgba(255,255,255,.35)" stroke-dasharray="4 5" stroke-width="2" fill="none"/>
+          <g class="region" data-r="Leonida Keys" fill="#5fc7c0" opacity=".55">
+            <ellipse cx="760" cy="1160" rx="26" ry="10" transform="rotate(-30 760 1160)"/>
+            <ellipse cx="715" cy="1190" rx="30" ry="9" transform="rotate(-22 715 1190)"/>
+            <ellipse cx="660" cy="1212" rx="34" ry="9" transform="rotate(-12 660 1212)"/>
+            <ellipse cx="600" cy="1226" rx="30" ry="8" transform="rotate(-6 600 1226)"/>
+            <ellipse cx="540" cy="1234" rx="28" ry="8"/>
+            <ellipse cx="482" cy="1238" rx="24" ry="8" transform="rotate(4 482 1238)"/>
+            <ellipse cx="430" cy="1236" rx="18" ry="7"/>
+          </g>
+        </g>
+
+        <!-- Carreteras -->
+        <g fill="none" stroke="rgba(40,40,50,.55)" stroke-width="3" stroke-linecap="round" pointer-events="none">
+          <path d="M80 230 C 260 210 420 200 560 190 C 650 186 720 200 740 240"/>
+          <path d="M740 240 C 770 380 800 520 820 640 C 838 760 850 870 840 1000 C 832 1060 800 1100 770 1150"/>
+          <path d="M520 190 C 540 320 600 420 640 520 C 660 580 640 700 600 820 C 590 880 700 900 800 900"/>
+          <path d="M770 1150 C 700 1195 600 1225 430 1236" stroke-dasharray="7 5"/>
+        </g>
+
+        <!-- Etiquetas de región -->
+        <g id="rlabels">
+          <text class="rlabel" x="200" y="230" font-size="26">Port Gellhorn</text>
+          <text class="rlabel" x="585" y="190" font-size="24">Mount Kalaga</text>
+          <text class="slabel" x="585" y="212">Parque Nacional</text>
+          <text class="rlabel" x="620" y="470" font-size="28">Ambrosia</text>
+          <text class="rlabel" x="640" y="905" font-size="26">Grassrivers</text>
+          <text class="rlabel" x="830" y="975" font-size="24" transform="rotate(-80 830 975)">Vice City</text>
+          <text class="rlabel" x="600" y="1275" font-size="22">Leonida Keys</text>
+          <text class="slabel" x="170" y="600" font-size="16">Golfo</text>
+          <text class="slabel" x="950" y="520" font-size="16" transform="rotate(90 950 520)">Océano</text>
+        </g>
+
+        <!-- Rosa de los vientos -->
+        <g transform="translate(110,1150)" pointer-events="none" opacity=".85">
+          <circle r="42" fill="rgba(0,0,0,.25)" stroke="rgba(255,255,255,.35)"/>
+          <path d="M0 -38 L8 0 L0 38 L-8 0 Z" fill="#fff" opacity=".85"/>
+          <path d="M-38 0 L0 -6 L38 0 L0 6 Z" fill="#fff" opacity=".4"/>
+          <text y="-48" class="slabel" style="font-style:normal;font-weight:800">N</text>
+        </g>
+
+        <g id="markers"></g>
+      </g>
+    </svg>
+
+    <div class="controls">
+      <button class="btn" id="zin" title="Acercar">+</button>
+      <button class="btn" id="zout" title="Alejar">−</button>
+      <button class="btn" id="zreset" title="Ver todo">⤢</button>
+      <button class="btn" id="lbl" title="Mostrar/ocultar nombres">Aa</button>
+    </div>
+    <div class="legend-hint" id="hint">Modo editor: toca el mapa para colocar un marcador</div>
+    <div class="coords" id="coords">x: — · y: —</div>
+
+    <div class="card" id="card">
+      <button class="close" id="cardClose">×</button>
+      <h2 id="cTitle"></h2>
+      <div class="meta" id="cMeta"></div>
+      <p id="cDesc"></p>
+      <div id="cTags" style="margin-bottom:10px"></div>
+      <div class="row">
+        <button class="btn primary" id="cDone">✔ Marcar completado</button>
+        <button class="btn" id="cEdit">Editar</button>
+        <button class="btn" id="cDel" style="display:none">Borrar</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal agregar/editar -->
+<div class="modal" id="modal">
+  <div class="box">
+    <h2 id="mTitle">Nuevo marcador</h2>
+    <label>Nombre</label><input type="text" id="fName" placeholder="Ej: Misión 3">
+    <label>Categoría</label><select id="fCat"></select>
+    <label>Región</label><select id="fReg"></select>
+    <label>Capítulo / grupo (opcional)</label><input type="text" id="fChap" placeholder="Ej: Capítulo 1">
+    <label>Descripción</label><textarea id="fDesc" placeholder="Qué hacer aquí, consejos, recompensa…"></textarea>
+    <div class="row" style="margin-top:14px;justify-content:flex-end">
+      <button class="btn" id="mCancel">Cancelar</button>
+      <button class="btn primary" id="mSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal exportar/importar -->
+<div class="modal" id="ioModal">
+  <div class="box">
+    <h2 id="ioTitle">Exportar</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 8px" id="ioHelp"></p>
+    <textarea id="ioText" style="min-height:220px;font-family:monospace;font-size:12px"></textarea>
+    <div class="row" style="margin-top:12px;justify-content:flex-end">
+      <button class="btn" id="ioClose">Cerrar</button>
+      <button class="btn" id="ioCopy">Copiar</button>
+      <button class="btn primary" id="ioAction">Descargar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   1) CONFIGURACIÓN — Categorías y regiones
+   ===================================================================== */
+const CATEGORIES = {
+  principal:    { name: "Misiones principales",  color: "#ff4fa3", icon: "★" },
+  secundaria:   { name: "Misiones secundarias",  color: "#ffc24a", icon: "!" },
+  coleccionable:{ name: "Coleccionables",        color: "#2de0c8", icon: "◆" },
+  actividad:    { name: "Actividades",           color: "#8f7bff", icon: "●" },
+  tienda:       { name: "Tiendas y servicios",   color: "#4fb3ff", icon: "$" },
+  lugar:        { name: "Lugares de interés",    color: "#ffffff", icon: "i" }
+};
+const REGIONS = ["Vice City","Leonida Keys","Grassrivers","Port Gellhorn","Ambrosia","Mount Kalaga"];
+
+/* =====================================================================
+   2) DATOS — Pega aquí lo que exportes con el editor.
+   x/y = coordenadas del mapa (0–1000 de ancho, 0–1300 de alto).
+   "ejemplo: true" muestra la etiqueta EJEMPLO; bórralos cuando tengas los reales.
+   ===================================================================== */
+const DATA = [
+  // ---- Las 6 regiones oficiales ----
+  { id:"r-vc",  cat:"lugar", region:"Vice City", x:830, y:880, name:"Vice City",
+    desc:"La gran ciudad de Leonida: hoteles art déco, playas de arena blanca, Little Cuba, vida nocturna y el puerto." },
+  { id:"r-keys",cat:"lugar", region:"Leonida Keys", x:640, y:1212, name:"Leonida Keys",
+    desc:"Cadena de islas al sur de la península, conectada por carretera. Marinas, botes y aguas turquesa." },
+  { id:"r-gr",  cat:"lugar", region:"Grassrivers", x:640, y:860, name:"Grassrivers",
+    desc:"Humedales y pantanos al estilo de los Everglades. Ideal para hidrodeslizadores, fauna y zonas remotas." },
+  { id:"r-pg",  cat:"lugar", region:"Port Gellhorn", x:200, y:265, name:"Port Gellhorn",
+    desc:"Ciudad portuaria en la costa del golfo, al noroeste de Leonida." },
+  { id:"r-amb", cat:"lugar", region:"Ambrosia", x:620, y:510, name:"Ambrosia",
+    desc:"Región del interior de Leonida, lejos de la costa." },
+  { id:"r-mk",  cat:"lugar", region:"Mount Kalaga", x:585, y:240, name:"Parque Nacional Mount Kalaga",
+    desc:"Bosques y colinas en el norte del estado. Zona de caza, pesca y caminos de tierra." },
+  { id:"l-cuba",cat:"lugar", region:"Vice City", x:800, y:960, name:"Little Cuba",
+    desc:"Barrio de Vice City." },
+  { id:"l-port",cat:"lugar", region:"Vice City", x:868, y:1040, name:"Puerto de Vice City",
+    desc:"Zona portuaria de la ciudad." },
+
+  // ---- EJEMPLOS (bórralos y agrega los reales con el editor) ----
+  { id:"ej-1", cat:"principal", region:"Vice City", x:810, y:820, name:"Misión principal (ejemplo)", chapter:"Capítulo 1", ejemplo:true,
+    desc:"Así se ve una misión principal. Usa el editor para colocar las reales mientras juegas." },
+  { id:"ej-2", cat:"secundaria", region:"Grassrivers", x:700, y:980, name:"Misión secundaria (ejemplo)", chapter:"Secundarias", ejemplo:true,
+    desc:"Ejemplo de misión secundaria." },
+  { id:"ej-3", cat:"coleccionable", region:"Leonida Keys", x:540, y:1234, name:"Coleccionable (ejemplo)", chapter:"Coleccionables", ejemplo:true,
+    desc:"Ejemplo de coleccionable. Agrega una pista de cómo encontrarlo." },
+  { id:"ej-4", cat:"actividad", region:"Mount Kalaga", x:480, y:160, name:"Actividad (ejemplo)", chapter:"Actividades", ejemplo:true,
+    desc:"Ejemplo: caza, pesca, carreras…" }
+].filter(m => !m.ejemplo);
+
+/* =====================================================================
+   3) Estado y almacenamiento local (el progreso se guarda en el navegador)
+   ===================================================================== */
+const LS_DONE = "leonida_done_v1", LS_CUSTOM = "leonida_custom_v1";
+const store = {
+  get(k, def){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch(e){ return def; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+let done = new Set(store.get(LS_DONE, []));
+let custom = store.get(LS_CUSTOM, { added: [], edited: {}, deleted: [] });
+let activeCats = new Set(Object.keys(CATEGORIES));
+let query = "", selected = null, editMode = false, showLabels = true, pendingPoint = null, editingId = null;
+
+function allMarkers(){
+  const del = new Set(custom.deleted);
+  return DATA.concat(custom.added)
+    .filter(m => !del.has(m.id))
+    .map(m => custom.edited[m.id] ? Object.assign({}, m, custom.edited[m.id]) : m);
+}
+const isCustom = id => custom.added.some(m => m.id === id);
+const saveCustom = () => store.set(LS_CUSTOM, custom);
+
+/* =====================================================================
+   4) Pan y zoom
+   ===================================================================== */
+const svg = document.getElementById("map"), world = document.getElementById("world");
+let T = { x: 0, y: 0, k: 1 };
+const MIN_K = 0.8, MAX_K = 8;
+function apply(){
+  world.setAttribute("transform", `translate(${T.x} ${T.y}) scale(${T.k})`);
+  document.querySelectorAll(".marker").forEach(g => {
+    g.setAttribute("transform", `translate(${g.dataset.x} ${g.dataset.y}) scale(${1/Math.pow(T.k,0.75)})`);
+  });
+}
+function svgPoint(cx, cy){
+  const p = svg.createSVGPoint(); p.x = cx; p.y = cy;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+function toMap(cx, cy){ const p = svgPoint(cx, cy); return { x: (p.x - T.x)/T.k, y: (p.y - T.y)/T.k }; }
+function zoomAt(px, py, factor){
+  const k2 = Math.min(MAX_K, Math.max(MIN_K, T.k * factor));
+  T.x = px - (px - T.x) * (k2 / T.k);
+  T.y = py - (py - T.y) * (k2 / T.k);
+  T.k = k2; apply();
+}
+function animateTo(target, ms = 350){
+  const s = Object.assign({}, T), t0 = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - t0)/ms), e = 1 - Math.pow(1 - t, 3);
+    T.x = s.x + (target.x - s.x)*e; T.y = s.y + (target.y - s.y)*e; T.k = s.k + (target.k - s.k)*e;
+    apply(); if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+function focusOn(mx, my, k = 3){ animateTo({ k, x: 500 - mx*k, y: 650 - my*k }); }
+
+svg.addEventListener("wheel", e => {
+  e.preventDefault();
+  const p = svgPoint(e.clientX, e.clientY);
+  zoomAt(p.x, p.y, e.deltaY < 0 ? 1.15 : 1/1.15);
+}, { passive: false });
+
+const pointers = new Map();
+let dragStart = null, moved = false, pinchStart = null;
+svg.addEventListener("pointerdown", e => {
+  svg.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  moved = false;
+  if (pointers.size === 1){
+    const p = svgPoint(e.clientX, e.clientY);
+    dragStart = { px: p.x, py: p.y, tx: T.x, ty: T.y, cx: e.clientX, cy: e.clientY };
+    svg.classList.add("dragging");
+  } else if (pointers.size === 2){
+    const [a, b] = [...pointers.values()];
+    const mid = svgPoint((a.x+b.x)/2, (a.y+b.y)/2);
+    pinchStart = { d: Math.hypot(a.x-b.x, a.y-b.y), k: T.k, tx: T.x, ty: T.y, mx: mid.x, my: mid.y };
+    dragStart = null;
+  }
+});
+svg.addEventListener("pointermove", e => {
+  const m = toMap(e.clientX, e.clientY);
+  document.getElementById("coords").textContent = `x: ${Math.round(m.x)} · y: ${Math.round(m.y)}`;
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2 && pinchStart){
+    const [a, b] = [...pointers.values()];
+    const k2 = Math.min(MAX_K, Math.max(MIN_K, pinchStart.k * Math.hypot(a.x-b.x, a.y-b.y) / pinchStart.d));
+    T.x = pinchStart.mx - (pinchStart.mx - pinchStart.tx) * (k2 / pinchStart.k);
+    T.y = pinchStart.my - (pinchStart.my - pinchStart.ty) * (k2 / pinchStart.k);
+    T.k = k2; moved = true; apply();
+  } else if (dragStart){
+    if (Math.hypot(e.clientX - dragStart.cx, e.clientY - dragStart.cy) > 4) moved = true;
+    const p = svgPoint(e.clientX, e.clientY);
+    T.x = dragStart.tx + (p.x - dragStart.px);
+    T.y = dragStart.ty + (p.y - dragStart.py);
+    apply();
+  }
+});
+function endPointer(e){
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinchStart = null;
+  if (pointers.size === 0){
+    svg.classList.remove("dragging");
+    if (!moved && dragStart && editMode && !e.target.closest(".marker")){
+      const m = toMap(e.clientX, e.clientY);
+      openForm(null, m);
+    }
+    dragStart = null;
+  }
+}
+svg.addEventListener("pointerup", endPointer);
+svg.addEventListener("pointercancel", endPointer);
+
+document.getElementById("zin").onclick = () => zoomAt(500, 650, 1.4);
+document.getElementById("zout").onclick = () => zoomAt(500, 650, 1/1.4);
+document.getElementById("zreset").onclick = () => animateTo({ x: 0, y: 0, k: 1 });
+document.getElementById("lbl").onclick = () => {
+  showLabels = !showLabels;
+  document.getElementById("rlabels").style.display = showLabels ? "" : "none";
+};
+
+/* Clic en una región → acercar */
+document.querySelectorAll(".region").forEach(r => {
+  r.addEventListener("click", () => {
+    if (moved || editMode) return;
+    const box = r.getBBox();
+    const k = Math.min(4, Math.max(1.4, 700 / Math.max(box.width, box.height*0.77)));
+    focusOn(box.x + box.width/2, box.y + box.height/2, k);
+  });
+});
+
+/* =====================================================================
+   5) Render de marcadores, filtros y lista
+   ===================================================================== */
+const NS = "http://www.w3.org/2000/svg";
+function visible(m){
+  if (!activeCats.has(m.cat)) return false;
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return [m.name, m.desc, m.region, m.chapter].some(s => s && s.toLowerCase().includes(q));
+}
+function renderMarkers(){
+  const g = document.getElementById("markers"); g.innerHTML = "";
+  allMarkers().filter(visible).forEach(m => {
+    const c = CATEGORIES[m.cat] || CATEGORIES.lugar;
+    const mk = document.createElementNS(NS, "g");
+    mk.classList.add("marker");
+    if (done.has(m.id)) mk.classList.add("done");
+    if (selected === m.id) mk.classList.add("sel");
+    mk.dataset.x = m.x; mk.dataset.y = m.y; mk.dataset.id = m.id;
+    mk.innerHTML = `<circle class="halo" r="17"/><circle class="pin" r="11" fill="${c.color}"/>
+      <text style="fill:${m.cat==='lugar'?'#151827':'#fff'}">${done.has(m.id) ? "✓" : c.icon}</text>`;
+    mk.addEventListener("click", ev => { ev.stopPropagation(); if (!moved) select(m.id, false); });
+    g.appendChild(mk);
+  });
+  apply();
+}
+function renderCats(){
+  const box = document.getElementById("cats"); box.innerHTML = "";
+  const ms = allMarkers();
+  Object.entries(CATEGORIES).forEach(([key, c]) => {
+    const items = ms.filter(m => m.cat === key);
+    const d = items.filter(m => done.has(m.id)).length;
+    const lab = document.createElement("label"); lab.className = "cat";
+    lab.innerHTML = `<input type="checkbox" ${activeCats.has(key) ? "checked" : ""}>
+      <span class="dot" style="background:${c.color}"></span>${c.name}
+      <span class="count">${d}/${items.length}</span>`;
+    lab.querySelector("input").onchange = e => {
+      e.target.checked ? activeCats.add(key) : activeCats.delete(key); renderAll();
+    };
+    box.appendChild(lab);
+  });
+  const trackable = ms.filter(m => m.cat !== "lugar");
+  const d = trackable.filter(m => done.has(m.id)).length;
+  const pct = trackable.length ? Math.round(d*100/trackable.length) : 0;
+  document.getElementById("progTxt").textContent = `${d}/${trackable.length} · ${pct}%`;
+  document.getElementById("progBar").style.width = pct + "%";
+}
+function renderList(){
+  const list = document.getElementById("list"); list.innerHTML = "";
+  const groups = {};
+  allMarkers().filter(visible).forEach(m => {
+    const key = CATEGORIES[m.cat] ? CATEGORIES[m.cat].name : "Otros";
+    (groups[key] = groups[key] || []).push(m);
+  });
+  Object.keys(CATEGORIES).map(k => CATEGORIES[k].name).forEach(gname => {
+    const arr = groups[gname]; if (!arr) return;
+    arr.sort((a, b) => (a.chapter||"").localeCompare(b.chapter||"", "es", {numeric:true}) || a.name.localeCompare(b.name, "es", {numeric:true}));
+    const t = document.createElement("div"); t.className = "group-title"; t.textContent = `${gname} (${arr.length})`;
+    list.appendChild(t);
+    arr.forEach(m => {
+      const c = CATEGORIES[m.cat] || CATEGORIES.lugar;
+      const it = document.createElement("div");
+      it.className = "item" + (done.has(m.id) ? " done" : "") + (selected === m.id ? " active" : "");
+      it.innerHTML = `<span class="dot" style="background:${c.color}"></span><span class="name"></span><span class="reg"></span>`;
+      it.querySelector(".name").textContent = m.name;
+      it.querySelector(".reg").textContent = m.region || "";
+      it.onclick = () => { select(m.id, true); if (window.innerWidth <= 820) document.getElementById("side").classList.add("collapsed"); };
+      list.appendChild(it);
+    });
+  });
+  if (!list.children.length) list.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px">Sin resultados.</p>`;
+}
+function renderAll(){ renderMarkers(); renderCats(); renderList(); if (selected) showCard(selected); }
+
+/* =====================================================================
+   6) Tarjeta de información
+   ===================================================================== */
+function select(id, fly){
+  selected = id;
+  const m = allMarkers().find(x => x.id === id); if (!m) return;
+  if (fly) focusOn(m.x, m.y, Math.max(T.k, 3));
+  renderMarkers(); renderList(); showCard(id);
+}
+function showCard(id){
+  const m = allMarkers().find(x => x.id === id);
+  const card = document.getElementById("card");
+  if (!m){ card.style.display = "none"; return; }
+  const c = CATEGORIES[m.cat] || CATEGORIES.lugar;
+  document.getElementById("cTitle").textContent = m.name;
+  document.getElementById("cMeta").innerHTML = `<span class="dot" style="display:inline-block;vertical-align:middle;background:${c.color}"></span> ${c.name} · ${m.region || "Leonida"}`;
+  document.getElementById("cDesc").textContent = m.desc || "";
+  const tags = document.getElementById("cTags"); tags.innerHTML = "";
+  if (m.chapter){ const s = document.createElement("span"); s.className = "tag"; s.textContent = m.chapter; tags.appendChild(s); }
+  if (m.ejemplo){ const s = document.createElement("span"); s.className = "tag ex"; s.textContent = "EJEMPLO"; tags.appendChild(s); }
+  const btn = document.getElementById("cDone");
+  btn.style.display = m.cat === "lugar" ? "none" : "";
+  btn.textContent = done.has(m.id) ? "↺ Marcar pendiente" : "✔ Marcar completado";
+  document.getElementById("cDel").style.display = editMode ? "" : "none";
+  card.style.display = "block";
+}
+document.getElementById("cardClose").onclick = () => { selected = null; document.getElementById("card").style.display = "none"; renderMarkers(); renderList(); };
+document.getElementById("cDone").onclick = () => {
+  done.has(selected) ? done.delete(selected) : done.add(selected);
+  store.set(LS_DONE, [...done]); renderAll();
+};
+document.getElementById("cEdit").onclick = () => { const m = allMarkers().find(x => x.id === selected); if (m) openForm(m); };
+document.getElementById("cDel").onclick = () => {
+  if (!selected) return;
+  if (isCustom(selected)) custom.added = custom.added.filter(m => m.id !== selected);
+  else custom.deleted.push(selected);
+  delete custom.edited[selected]; done.delete(selected);
+  saveCustom(); store.set(LS_DONE, [...done]);
+  selected = null; document.getElementById("card").style.display = "none"; renderAll();
+};
+
+/* =====================================================================
+   7) Editor: agregar / editar marcadores
+   ===================================================================== */
+const fCat = document.getElementById("fCat"), fReg = document.getElementById("fReg");
+Object.entries(CATEGORIES).forEach(([k, c]) => fCat.add(new Option(c.name, k)));
+REGIONS.forEach(r => fReg.add(new Option(r, r)));
+
+function guessRegion(x, y){
+  const el = document.elementsFromPoint ? null : null; // fallback por distancia
+  const centers = { "Vice City":[830,930], "Leonida Keys":[620,1215], "Grassrivers":[640,880], "Port Gellhorn":[200,250], "Ambrosia":[620,480], "Mount Kalaga":[580,190] };
+  let best = "Vice City", bd = Infinity;
+  for (const [r, [cx, cy]] of Object.entries(centers)){ const d = Math.hypot(x-cx, y-cy); if (d < bd){ bd = d; best = r; } }
+  return best;
+}
+function openForm(m, point){
+  editingId = m ? m.id : null; pendingPoint = point || null;
+  document.getElementById("mTitle").textContent = m ? "Editar marcador" : "Nuevo marcador";
+  document.getElementById("fName").value = m ? m.name : "";
+  fCat.value = m ? m.cat : "principal";
+  fReg.value = m ? (m.region || "Vice City") : guessRegion(point.x, point.y);
+  document.getElementById("fChap").value = m ? (m.chapter || "") : "";
+  document.getElementById("fDesc").value = m ? (m.desc || "") : "";
+  document.getElementById("modal").style.display = "flex";
+  setTimeout(() => document.getElementById("fName").focus(), 50);
+}
+document.getElementById("mCancel").onclick = () => document.getElementById("modal").style.display = "none";
+document.getElementById("mSave").onclick = () => {
+  const vals = {
+    name: document.getElementById("fName").value.trim() || "Sin nombre",
+    cat: fCat.value, region: fReg.value,
+    chapter: document.getElementById("fChap").value.trim(),
+    desc: document.getElementById("fDesc").value.trim(),
+    ejemplo: false
+  };
+  if (editingId){
+    if (isCustom(editingId)) Object.assign(custom.added.find(m => m.id === editingId), vals);
+    else custom.edited[editingId] = Object.assign(custom.edited[editingId] || {}, vals);
+  } else {
+    const id = "m-" + Date.now().toString(36);
+    custom.added.push(Object.assign({ id, x: Math.round(pendingPoint.x), y: Math.round(pendingPoint.y) }, vals));
+    selected = id;
+  }
+  saveCustom();
+  document.getElementById("modal").style.display = "none";
+  renderAll();
+};
+
+document.getElementById("editBtn").onclick = e => {
+  editMode = !editMode;
+  e.target.classList.toggle("on", editMode);
+  e.target.textContent = editMode ? "✔ Salir del editor" : "✚ Agregar marcadores";
+  svg.classList.toggle("editing", editMode);
+  document.getElementById("hint").style.display = editMode ? "block" : "none";
+  if (selected) showCard(selected);
+};
+
+/* =====================================================================
+   8) Exportar / importar
+   ===================================================================== */
+const io = document.getElementById("ioModal"), ioText = document.getElementById("ioText");
+let ioMode = "export";
+document.getElementById("exportBtn").onclick = () => {
+  ioMode = "export";
+  document.getElementById("ioTitle").textContent = "Exportar marcadores";
+  document.getElementById("ioHelp").textContent = "Copia esto y reemplaza la lista DATA en el archivo HTML para que todos los visitantes vean tus marcadores.";
+  document.getElementById("ioAction").textContent = "Descargar";
+  const out = allMarkers().map(m => { const o = Object.assign({}, m); if (!o.ejemplo) delete o.ejemplo; if (!o.chapter) delete o.chapter; return o; });
+  ioText.value = JSON.stringify(out, null, 2);
+  io.style.display = "flex";
+};
+document.getElementById("importBtn").onclick = () => {
+  ioMode = "import";
+  document.getElementById("ioTitle").textContent = "Importar marcadores";
+  document.getElementById("ioHelp").textContent = "Pega aquí un JSON exportado. Se agregarán los marcadores nuevos (los que ya existen se actualizan).";
+  document.getElementById("ioAction").textContent = "Importar";
+  ioText.value = ""; io.style.display = "flex";
+};
+document.getElementById("ioClose").onclick = () => io.style.display = "none";
+document.getElementById("ioCopy").onclick = () => {
+  ioText.select();
+  try { navigator.clipboard.writeText(ioText.value); } catch(e){ document.execCommand("copy"); }
+};
+document.getElementById("ioAction").onclick = () => {
+  if (ioMode === "export"){
+    const blob = new Blob(["const DATA = " + ioText.value + ";\n"], { type: "text/javascript" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "leonida-datos.js"; a.click();
+    return;
+  }
+  try {
+    const arr = JSON.parse(ioText.value);
+    if (!Array.isArray(arr)) throw new Error();
+    const baseIds = new Set(DATA.map(m => m.id));
+    arr.forEach(m => {
+      if (!m.id || typeof m.x !== "number" || typeof m.y !== "number") return;
+      if (baseIds.has(m.id)) custom.edited[m.id] = m;
+      else {
+        const i = custom.added.findIndex(a => a.id === m.id);
+        i >= 0 ? custom.added[i] = m : custom.added.push(m);
+      }
+      custom.deleted = custom.deleted.filter(d => d !== m.id);
+    });
+    saveCustom(); io.style.display = "none"; renderAll();
+  } catch(e){ alert("El texto no es un JSON válido."); }
+};
+
+/* =====================================================================
+   9) Búsqueda, menú móvil e inicio
+   ===================================================================== */
+document.getElementById("search").addEventListener("input", e => { query = e.target.value.trim(); renderAll(); });
+document.getElementById("brand").onclick = () => {
+  if (window.innerWidth > 820) return;
+  const s = document.getElementById("side"); s.classList.toggle("collapsed");
+  document.getElementById("toggleSide").textContent = s.classList.contains("collapsed") ? "▲ Menú" : "▼ Cerrar";
+};
+if (window.innerWidth <= 820) document.getElementById("side").classList.add("collapsed");
+renderAll();
+</script>
+</details><script>
+const entries=[['Hey Arnold!','Misión completada',true],['Pelícano pardo del este','Fauna',true],['Lagartija','Fauna',true],['Garza azulada','Fauna',true],['Gaviota','Fauna',true],['Cocodrilo','Fauna',true],['Tiburón','Fauna · por confirmar',false],['Kenton','Misión · estado por confirmar',false]];
+let saved={};try{saved=JSON.parse(localStorage.getItem('viceroute-personal')||'{}')}catch(e){};const panel=document.getElementById('personal');function updateTotal(){document.getElementById('total').textContent=entries.filter((e,i)=>saved[i]??e[2]).length+' / '+entries.length+' registros marcados';}entries.forEach((e,i)=>{const l=document.createElement('label');const c=document.createElement('input');c.type='checkbox';c.checked=saved[i]??e[2];c.onchange=()=>{saved[i]=c.checked;try{localStorage.setItem('viceroute-personal',JSON.stringify(saved))}catch(e){}updateTotal()};l.append(c,document.createTextNode(e[0]+' — '+e[1]));panel.append(l)});updateTotal();</script></body>
+</html>
