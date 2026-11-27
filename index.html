@@ -89,6 +89,12 @@
   }
 
 html,body{height:auto;min-height:100%;} .community,.progress,.legacy{max-width:1200px;margin:auto;padding:14px;} .community h1{margin:0;font-size:28px;letter-spacing:2px}.community h1 span{color:var(--pink)}.community header p,.note,.progress p{color:var(--muted)}.community .row{margin:12px 0}.community a{text-decoration:none}.community iframe{display:block;border:2px solid #ff2a85;border-radius:16px;height:72vh;height:72dvh;min-height:360px;background:#151827;touch-action:auto}.progress label{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--line);font-size:16px}.progress input{accent-color:var(--pink);width:22px;height:22px}.legacy summary{cursor:pointer;padding:12px;color:var(--muted)}.legacy .app{height:80vh}.community .btn{min-height:44px;display:inline-flex;align-items:center;font-size:14px}
+.community header .row { flex-wrap: nowrap; }
+.community header .btn { min-width: 0; justify-content: center; text-align: center; }
+@media (max-width: 520px) {
+  .community header .row { display: grid; grid-template-columns: 1.4fr 1.1fr 1fr; gap: 4px; }
+  .community header .btn { padding: 6px 3px; font-size: 13px; line-height: 1.2; }
+}
 </style>
 </head>
 <body>
